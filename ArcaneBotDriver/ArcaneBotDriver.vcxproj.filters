@@ -27,12 +27,12 @@
     <ClCompile Include="Driver.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ArcaneFunctions.cpp">
+    <ClCompile Include="DriverFunctions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ArcaneFunctions.h">
+    <ClInclude Include="DriverFunctions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,6 +1,6 @@
-#include "ArcaneFunctions.h"
+#include "DriverFunctions.h"
 
-VOID AsyncWorkRoutine(PDEVICE_OBJECT DeviceObject, PVOID Context) {
+void AsyncWorkRoutine(PDEVICE_OBJECT DeviceObject, PVOID Context) {
     UNREFERENCED_PARAMETER(DeviceObject);
 
     PASYNC_CTX asyncCtx = (PASYNC_CTX)Context;
@@ -25,4 +25,9 @@ VOID AsyncWorkRoutine(PDEVICE_OBJECT DeviceObject, PVOID Context) {
     // Clean up the work item and context
     IoFreeWorkItem(asyncCtx->WorkItem);
     ExFreePoolWithTag(asyncCtx, 'CtxA');
+}
+
+VOID ClickAt(RuneClient client, LONG32 x, LONG32 y) {
+    // Placeholder for actual click simulation logic
+    DbgPrint("ClickAt: Simulating a click action\n");
 }

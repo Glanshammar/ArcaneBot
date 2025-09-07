@@ -1,6 +1,6 @@
 #include <ntifs.h>
 #include "ArcaneShared.h"
-#include "ArcaneFunctions.h"
+#include "DriverFunctions.h"
 
 // Forward declarations
 NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath);
@@ -18,69 +18,21 @@ NTSTATUS DeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
     ULONG ioControlCode = stack->Parameters.DeviceIoControl.IoControlCode;
 
     switch (ioControlCode) {
-    case ARCANE_HELLO: {
-        PArcaneData inputData = (PArcaneData)Irp->AssociatedIrp.SystemBuffer;
-
-        if (stack->Parameters.DeviceIoControl.InputBufferLength < sizeof(ArcaneData)) {
+    case ARCANE_CLICK:
+        if (stack->Parameters.DeviceIoControl.InputBufferLength < sizeof(DWORD32) * 2) {
             status = STATUS_BUFFER_TOO_SMALL;
             break;
         }
-
-        DbgPrint("Message: %S", inputData->Message);
-        DbgPrint("Number: %lu", inputData->Number);
-
-        status = STATUS_SUCCESS;
-        info = 0;
-        break;
-    }
-
-    case ARCANE_ASYNC: {
-        PArcaneData inputData = (PArcaneData)Irp->AssociatedIrp.SystemBuffer;
-
-        if (stack->Parameters.DeviceIoControl.InputBufferLength < sizeof(ArcaneData)) {
-            status = STATUS_BUFFER_TOO_SMALL;
-            break;
+        {
+            struct {
+                DWORD32 x;
+                DWORD32 y;
+            }* clickCoords = (decltype(clickCoords))Irp->AssociatedIrp.SystemBuffer;
+            DbgPrint("ArcaneBot Driver: Simulating left click at (%d, %d)\n", clickCoords->x, clickCoords->y);
+            // Simulate mouse move and left click here
         }
-
-        // Allocate context for async operation
-        PASYNC_CTX asyncCtx = (PASYNC_CTX)ExAllocatePool2(
-            POOL_FLAG_NON_PAGED,
-            sizeof(ASYNC_CTX),
-            'CtxA'
-        );
-
-        if (!asyncCtx) {
-            status = STATUS_INSUFFICIENT_RESOURCES;
-            break;
-        }
-
-        // Copy the input data to our context
-        RtlCopyMemory(&asyncCtx->Data, inputData, sizeof(ArcaneData));
-        asyncCtx->Irp = Irp;
-
-        // Create a work item
-        asyncCtx->WorkItem = IoAllocateWorkItem(DeviceObject);
-        if (!asyncCtx->WorkItem) {
-            ExFreePoolWithTag(asyncCtx, 'CtxA');
-            status = STATUS_INSUFFICIENT_RESOURCES;
-            break;
-        }
-
-        // Mark the IRP as pending
-        IoMarkIrpPending(Irp);
-
-        // Queue the work item for execution
-        IoQueueWorkItem(
-            asyncCtx->WorkItem,
-            AsyncWorkRoutine,
-            DelayedWorkQueue,
-            asyncCtx
-        );
-
-        // Return pending status - the IRP will be completed later in the work routine
-        return STATUS_PENDING;
-    }
-
+        info = sizeof(DWORD32) * 2;
+		break;
     default:
         status = STATUS_INVALID_DEVICE_REQUEST;
         info = 0;
