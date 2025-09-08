@@ -34,10 +34,19 @@ public:
     ~RuneClient() = delete;
 };
 
-typedef struct _ArcaneData {
-    ULONG Number;
-    WCHAR Message[100];
-} ArcaneData, * PArcaneData;
+
+// Define structures shared between user and kernel space
+#pragma pack(push, 1)  // Ensure no padding
+typedef struct _ArcaneClickData {
+    LONG x;
+    LONG y;
+} ArcaneClickData, *PArcaneClickData;
+
+typedef struct _ArcaneKeypressData {
+    UCHAR keys[16];  // Fixed size array for keys
+    ULONG count;     // Number of valid keys in the array
+} ArcaneKeypressData, *PArcanekeypressData;
+#pragma pack(pop)
 
 
 // Define our IOCTL codes

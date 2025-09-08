@@ -7,9 +7,7 @@
 #include <csignal>
 #include <atomic>
 #include "json.hpp"
-
 #include <stdexcept>
-
 
 std::atomic<bool> global_running{ true };
 
@@ -61,7 +59,7 @@ bool ArcaneInterface::SendToKernel(DWORD ioctlCode, const void* inputData, size_
     BOOL result = DeviceIoControl(
         hDevice,
         ioctlCode,
-        const_cast<LPVOID>(inputData),  // Remove const for Windows API
+        const_cast<LPVOID>(inputData),
         static_cast<DWORD>(inputSize),
         outputData,
         static_cast<DWORD>(outputSize),
@@ -79,26 +77,25 @@ bool ArcaneInterface::SendToKernel(DWORD ioctlCode, const void* inputData, size_
 
 bool ArcaneInterface::HandleCommand(const std::string& jsonString) {
     try {
-        json j = json::parse(jsonString);
-        std::string command = j.at("command");
-        auto args = j.at("arguments");
+        json jsonData = json::parse(jsonString);
+        std::string command = jsonData.at("command");
+        auto args = jsonData.at("arguments");
 
+        
         if (command == "KEYPRESS") {
-            std::vector<uint8_t> keys = args.get<std::vector<uint8_t>>();
-            return SendToKernel(ARCANE_KEYPRESS, keys.data(), keys.size());
+            ArcaneKeypressData keyData = { 0 };
+            return SendToKernel(ARCANE_KEYPRESS, &keyData, sizeof(keyData));
         }
         else if (command == "MENUCLICK") {
-            int8_t menu = args.at(0);
+			int8_t menu = args.at(0);
             return SendToKernel(ARCANE_MENUCLICK, &menu, sizeof(menu));
         }
         else if (command == "LEFTCLICK") {
-            int32_t x = args.at(0);
-            int32_t y = args.at(1);
-            struct {
-                int32_t x;
-                int32_t y;
-            } clickCoords{ x, y };
-            return SendToKernel(ARCANE_CLICK, &clickCoords, sizeof(clickCoords));
+            ArcaneClickData clickData = {
+                args.at(0),
+                args.at(1)
+            };
+            return SendToKernel(ARCANE_CLICK, &clickData, sizeof(clickData));
         }
 
         std::cerr << "Unknown command: " << command << std::endl;
@@ -127,13 +124,13 @@ bool ArcaneInterface::ZmqInitialize(const std::string& port) {
 
 void ArcaneInterface::ZmqStart(MessageCallback callback) {
     if (running_) {
-        std::cout << "ZeroMQ server already running." << std::endl;
+        std::cout << "ZeroMQ server is already running." << std::endl;
         return;
     }
 
     running_ = true;
-    std::cout << "Starting ZeroMQ server on " << endpoint_ << std::endl;
-    std::cout << "Press Ctrl+C to stop the server" << std::endl;
+    std::cout << "Starting ZeroMQ server on " << endpoint_ << "." << std::endl;
+    std::cout << "Press Ctrl+C to stop the server." << std::endl;
 
     MessageCallback processor = callback;
     if (!processor) {
