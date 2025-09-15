@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ArcaneBotShared", "ArcaneBo
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ArcaneBotInterface", "ArcaneBotInterface\ArcaneBotInterface.vcxproj", "{466E14F5-A4BB-455A-9015-14D5C7ACBC3E}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ArcaneTesting", "ArcaneTesting\ArcaneTesting.vcxproj", "{4A3F6901-31A7-47FE-A3F7-5826872E4401}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM64 = Debug|ARM64
@@ -45,6 +47,14 @@ Global
 		{466E14F5-A4BB-455A-9015-14D5C7ACBC3E}.Release|ARM64.Build.0 = Release|x64
 		{466E14F5-A4BB-455A-9015-14D5C7ACBC3E}.Release|x64.ActiveCfg = Release|x64
 		{466E14F5-A4BB-455A-9015-14D5C7ACBC3E}.Release|x64.Build.0 = Release|x64
+		{4A3F6901-31A7-47FE-A3F7-5826872E4401}.Debug|ARM64.ActiveCfg = Debug|x64
+		{4A3F6901-31A7-47FE-A3F7-5826872E4401}.Debug|ARM64.Build.0 = Debug|x64
+		{4A3F6901-31A7-47FE-A3F7-5826872E4401}.Debug|x64.ActiveCfg = Debug|x64
+		{4A3F6901-31A7-47FE-A3F7-5826872E4401}.Debug|x64.Build.0 = Debug|x64
+		{4A3F6901-31A7-47FE-A3F7-5826872E4401}.Release|ARM64.ActiveCfg = Release|x64
+		{4A3F6901-31A7-47FE-A3F7-5826872E4401}.Release|ARM64.Build.0 = Release|x64
+		{4A3F6901-31A7-47FE-A3F7-5826872E4401}.Release|x64.ActiveCfg = Release|x64
+		{4A3F6901-31A7-47FE-A3F7-5826872E4401}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
