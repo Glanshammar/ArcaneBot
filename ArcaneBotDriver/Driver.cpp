@@ -1,106 +1,178 @@
-#include <ntifs.h>
-#include "ArcaneShared.h"
 #include "DriverFunctions.h"
+#include "ArcaneShared.h"
+
+// Control device context
+typedef struct _CONTROL_DEVICE_CONTEXT {
+    WDFDEVICE Device;
+    WDFQUEUE DefaultQueue;
+} CONTROL_DEVICE_CONTEXT, * PCONTROL_DEVICE_CONTEXT;
+
+WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(CONTROL_DEVICE_CONTEXT, GetControlDeviceContext)
 
 // Forward declarations
-NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath);
-VOID DriverUnload(PDRIVER_OBJECT DriverObject);
-NTSTATUS DeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp);
-NTSTATUS CreateCloseHandler(PDEVICE_OBJECT DeviceObject, PIRP Irp);
+NTSTATUS CreateControlDevice(WDFDRIVER Driver);
+VOID ControlEvtIoDeviceControl(WDFQUEUE Queue, WDFREQUEST Request, size_t OutputBufferLength,
+    size_t InputBufferLength, ULONG IoControlCode);
+VOID ControlEvtDeviceContextCleanup(WDFOBJECT DeviceObject);
 
+// Driver Entry
+NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
+{
+    WDF_DRIVER_CONFIG config;
+    NTSTATUS status;
 
-NTSTATUS DeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
-    UNREFERENCED_PARAMETER(DeviceObject);
+    KdPrint(("ArcaneDriver: DriverEntry\n"));
+
+    // Initialize WDF driver
+    WDF_DRIVER_CONFIG_INIT(&config, NULL); // No EvtDeviceAdd, we'll create devices manually
+    config.DriverPoolTag = 'narA'; // "Aran" in little-endian
+    config.EvtDriverUnload = NULL; // We'll handle cleanup manually
+
+    status = WdfDriverCreate(DriverObject, RegistryPath, WDF_NO_OBJECT_ATTRIBUTES, &config, WDF_NO_HANDLE);
+    if (!NT_SUCCESS(status)) {
+        KdPrint(("ArcaneDriver: WdfDriverCreate failed: 0x%x\n", status));
+        return status;
+    }
+
+    // Create control device
+    status = CreateControlDevice(WdfGetDriver());
+    if (!NT_SUCCESS(status)) {
+        KdPrint(("ArcaneDriver: Failed to create control device: 0x%x\n", status));
+        return status;
+    }
+
+    // Create HID keyboard device
+    status = VirtualHidKeyboardEvtDeviceAdd(WdfGetDriver(), NULL);
+    if (!NT_SUCCESS(status)) {
+        KdPrint(("ArcaneDriver: Failed to create HID keyboard device: 0x%x\n", status));
+        // Continue anyway, as the control device is more critical
+    }
+
+    KdPrint(("ArcaneDriver: Loaded successfully\n"));
+    return STATUS_SUCCESS;
+}
+
+// Create Control Device
+NTSTATUS CreateControlDevice(WDFDRIVER Driver)
+{
+    NTSTATUS status;
+    WDFDEVICE_INIT* deviceInit;
+    WDFDEVICE device;
+    WDF_OBJECT_ATTRIBUTES deviceAttributes;
+    WDF_IO_QUEUE_CONFIG queueConfig;
+    UNICODE_STRING deviceName, symbolicLink;
+    PCONTROL_DEVICE_CONTEXT deviceContext;
+
+    // Allocate device initialization structure
+    deviceInit = WdfControlDeviceInitAllocate(Driver, &SDDL_DEVOBJ_KERNEL_ONLY);
+    if (!deviceInit) {
+        KdPrint(("ArcaneDriver: WdfControlDeviceInitAllocate failed\n"));
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    // Set device type and characteristics
+    WdfDeviceInitSetDeviceType(deviceInit, FILE_DEVICE_UNKNOWN);
+    WdfDeviceInitSetExclusive(deviceInit, FALSE);
+
+    // Set up device name
+    RtlInitUnicodeString(&deviceName, L"\\Device\\ArcaneDriver");
+    status = WdfDeviceInitAssignName(deviceInit, &deviceName);
+    if (!NT_SUCCESS(status)) {
+        KdPrint(("ArcaneDriver: WdfDeviceInitAssignName failed: 0x%x\n", status));
+        WdfDeviceInitFree(deviceInit);
+        return status;
+    }
+
+    // Set up device context
+    WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&deviceAttributes, CONTROL_DEVICE_CONTEXT);
+    deviceAttributes.EvtCleanupCallback = ControlEvtDeviceContextCleanup;
+
+    status = WdfDeviceCreate(&deviceInit, &deviceAttributes, &device);
+    if (!NT_SUCCESS(status)) {
+        KdPrint(("ArcaneDriver: WdfDeviceCreate failed: 0x%x\n", status));
+        WdfDeviceInitFree(deviceInit);
+        return status;
+    }
+
+    deviceContext = GetControlDeviceContext(device);
+    deviceContext->Device = device;
+
+    // Create symbolic link
+    RtlInitUnicodeString(&symbolicLink, L"\\DosDevices\\ArcaneDriver");
+    status = WdfDeviceCreateSymbolicLink(device, &symbolicLink);
+    if (!NT_SUCCESS(status)) {
+        KdPrint(("ArcaneDriver: WdfDeviceCreateSymbolicLink failed: 0x%x\n", status));
+        return status;
+    }
+
+    // Set up default queue for device control requests
+    WDF_IO_QUEUE_CONFIG_INIT_DEFAULT_QUEUE(&queueConfig, WdfIoQueueDispatchParallel);
+    queueConfig.EvtIoDeviceControl = ControlEvtIoDeviceControl;
+
+    status = WdfIoQueueCreate(device, &queueConfig, WDF_NO_OBJECT_ATTRIBUTES, &deviceContext->DefaultQueue);
+    if (!NT_SUCCESS(status)) {
+        KdPrint(("ArcaneDriver: WdfIoQueueCreate failed: 0x%x\n", status));
+        return status;
+    }
+
+    // Control devices must be explicitly started after initialization
+    WdfControlFinishInitializing(device);
+
+    KdPrint(("ArcaneDriver: Control device created successfully\n"));
+    return STATUS_SUCCESS;
+}
+
+// Control Device IOCTL Handler
+VOID ControlEvtIoDeviceControl(
+    WDFQUEUE Queue,
+    WDFREQUEST Request,
+    size_t OutputBufferLength,
+    size_t InputBufferLength,
+    ULONG IoControlCode)
+{
+    WDFDEVICE device = WdfIoQueueGetDevice(Queue);
+    PDEVICE_CONTEXT deviceContext = GetDeviceContext(device);
     NTSTATUS status = STATUS_SUCCESS;
-    ULONG_PTR info = 0;
+    size_t bytesReturned = 0;
 
-    PIO_STACK_LOCATION stack = IoGetCurrentIrpStackLocation(Irp);
-    ULONG ioControlCode = stack->Parameters.DeviceIoControl.IoControlCode;
+    UNREFERENCED_PARAMETER(OutputBufferLength);
+    UNREFERENCED_PARAMETER(InputBufferLength);
 
-    switch (ioControlCode) {
-    case ARCANE_CLICK:
-        if (stack->Parameters.DeviceIoControl.InputBufferLength < sizeof(DWORD32) * 2) {
-            status = STATUS_BUFFER_TOO_SMALL;
+    KdPrint(("ArcaneDriver: ControlEvtIoDeviceControl - IoControlCode: 0x%x\n", IoControlCode));
+
+    switch (IoControlCode) {
+        default:
+            status = STATUS_INVALID_DEVICE_REQUEST;
+            bytesReturned = 0;
+            // Fixed the DbgPrint call by removing the extra parentheses
+            DbgPrint("ArcaneDriver: Invalid IOCTL: 0x%X\n", IoControlCode);
             break;
         }
-        {
-            struct {
-                DWORD32 x;
-                DWORD32 y;
-            }* clickCoords = (decltype(clickCoords))Irp->AssociatedIrp.SystemBuffer;
-            DbgPrint("ArcaneBot Driver: Simulating left click at (%d, %d)\n", clickCoords->x, clickCoords->y);
-            // Simulate mouse move and left click here
-        }
-        info = sizeof(DWORD32) * 2;
-		break;
-    default:
-        status = STATUS_INVALID_DEVICE_REQUEST;
-        info = 0;
-        DbgPrint("ArcaneBot Driver: Invalid IOCTL: 0x%X\n", ioControlCode);
-        break;
-    }
 
-    // Complete the IRP for synchronous operations
-    Irp->IoStatus.Status = status;
-    Irp->IoStatus.Information = info;
-    IoCompleteRequest(Irp, IO_NO_INCREMENT);
-
-    return status;
+    WdfRequestCompleteWithInformation(Request, status, bytesReturned);
 }
 
+// Control Device Context Cleanup
+VOID ControlEvtDeviceContextCleanup(WDFOBJECT DeviceObject)
+{
+    UNICODE_STRING symbolicLink;
+    NTSTATUS status;
 
-NTSTATUS CreateCloseHandler(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
-    UNREFERENCED_PARAMETER(DeviceObject);
+    KdPrint(("ArcaneDriver: ControlEvtDeviceContextCleanup\n"));
 
-    Irp->IoStatus.Status = STATUS_SUCCESS;
-    Irp->IoStatus.Information = 0;
-    IoCompleteRequest(Irp, IO_NO_INCREMENT);
-    return STATUS_SUCCESS;
-}
-
-
-NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) {
-    UNREFERENCED_PARAMETER(RegistryPath);
-
-    // Set up device and symbolic link
-    UNICODE_STRING deviceName, symLink;
-    RtlInitUnicodeString(&deviceName, L"\\Device\\ArcaneDriver");
-    RtlInitUnicodeString(&symLink, L"\\DosDevices\\ArcaneDriver");
-
-    PDEVICE_OBJECT DeviceObject;
-    NTSTATUS status = IoCreateDevice(
-        DriverObject,
-        0,
-        &deviceName,
-        FILE_DEVICE_UNKNOWN,
-        FILE_DEVICE_SECURE_OPEN,
-        FALSE,
-        &DeviceObject
-    );
-
+    // Delete the symbolic link
+    RtlInitUnicodeString(&symbolicLink, L"\\DosDevices\\ArcaneDriver");
+    status = IoDeleteSymbolicLink(&symbolicLink);
     if (!NT_SUCCESS(status)) {
-        return status;
+        KdPrint(("ArcaneDriver: IoDeleteSymbolicLink failed: 0x%x\n", status));
     }
-
-    status = IoCreateSymbolicLink(&symLink, &deviceName);
-    if (!NT_SUCCESS(status)) {
-        IoDeleteDevice(DeviceObject);
-        return status;
-    }
-
-    // Set up dispatch routines
-    DriverObject->MajorFunction[IRP_MJ_CREATE] = CreateCloseHandler;
-    DriverObject->MajorFunction[IRP_MJ_CLOSE] = CreateCloseHandler;
-    DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = DeviceControl;
-    DriverObject->DriverUnload = DriverUnload;
-
-    return STATUS_SUCCESS;
 }
 
+// Driver Unload
+VOID DriverUnload(PDRIVER_OBJECT DriverObject)
+{
+    KdPrint(("ArcaneDriver: Unloading\n"));
 
-VOID DriverUnload(PDRIVER_OBJECT DriverObject) {
-    UNICODE_STRING symLink;
-    RtlInitUnicodeString(&symLink, L"\\DosDevices\\ArcaneDriver");
-    IoDeleteSymbolicLink(&symLink);
-    IoDeleteDevice(DriverObject->DeviceObject);
+    // WDF will automatically clean up all devices and resources
+    // when the driver object is deleted
 }

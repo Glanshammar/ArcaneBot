@@ -1,13 +1,81 @@
 #pragma once
 
 #include <ntifs.h>
+#include <wdm.h>
+#include <wdf.h>
+#include <hidport.h>
+#include <hidsdi.h>
+#include <initguid.h>
 #include "ArcaneShared.h"
 
-VOID AsyncWorkRoutine(PDEVICE_OBJECT DeviceObject, PVOID Context);
-VOID ClickAt(RuneClient client, LONG32 x, LONG32 y);
+// GUID for virtual keyboard device interface
+DEFINE_GUID(ARCANE_KEYBOARD_GUID,
+    0x12345678, 0x1234, 0x1234, 0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef);
 
-typedef struct _ASYNC_CTX {
-    PIRP Irp;                   // The IRP to complete later
-    PIO_WORKITEM WorkItem;      // The work item
-    ArcaneData Data;            // Copy of the input data
-} ASYNC_CTX, * PASYNC_CTX;
+#define ARCANE_DEVICE_TYPE 0x8000
+#define MOUSE_CLICK CTL_CODE(ARCANE_DEVICE_TYPE, 0x800, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define MOUSE_RIGHTCLICK CTL_CODE(ARCANE_DEVICE_TYPE, 0x801, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define MOUSE_MENUCLICK CTL_CODE(ARCANE_DEVICE_TYPE, 0x802, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define KEYBOARD_INJECT CTL_CODE(FILE_DEVICE_UNKNOWN, 0x803, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define KEYBOARD_TARGETED_INJECT CTL_CODE(FILE_DEVICE_UNKNOWN, 0x804, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define KEYBOARD_PRESS CTL_CODE(FILE_DEVICE_UNKNOWN, 0x805, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define KEYBOARD_RELEASE CTL_CODE(FILE_DEVICE_UNKNOWN, 0x806, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
+extern const UCHAR g_KeyboardHidReportDescriptor[];
+
+// Structure for key injection requests
+typedef struct _KEY_INJECTION_REQUEST {
+    ULONG_PTR ProcessId;        // Target process ID
+    ULONG_PTR WindowHandle;     // Target window handle (alternative to ProcessId)
+    UCHAR Modifier;
+    UCHAR KeyCount;
+    UCHAR KeyCodes[6];
+} KEY_INJECTION_REQUEST, * PKEY_INJECTION_REQUEST;
+
+typedef struct _SINGLE_KEY_REQUEST {
+    ULONG_PTR ProcessId;
+    UCHAR KeyCode;
+    UCHAR Modifier;
+} SINGLE_KEY_REQUEST, * PSINGLE_KEY_REQUEST;
+
+// Keyboard input report structure
+typedef struct _KEYBOARD_INPUT_REPORT {
+    UCHAR Modifier;
+    UCHAR Reserved;
+    UCHAR KeyCode[6];
+} KEYBOARD_INPUT_REPORT, * PKEYBOARD_INPUT_REPORT;
+
+// Device context structure
+typedef struct _DEVICE_CONTEXT {
+    WDFDEVICE Device;
+    HID_DEVICE_ATTRIBUTES HidDeviceAttributes;
+    PHID_DESCRIPTOR HidDescriptor;
+    WDFQUEUE DefaultQueue;
+    WDFQUEUE PendingReadQueue;
+    KEYBOARD_INPUT_REPORT CurrentInputReport;
+    BOOLEAN HasPendingReport;
+    BOOLEAN IsInitialized;
+} DEVICE_CONTEXT, * PDEVICE_CONTEXT;
+
+WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(DEVICE_CONTEXT, GetDeviceContext)
+
+// Function declarations
+NTSTATUS VirtualHidKeyboardEvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT DeviceInit);
+VOID VirtualHidKeyboardEvtDeviceContextCleanup(WDFOBJECT DeviceObject);
+VOID VirtualHidKeyboardEvtIoDeviceControl(WDFQUEUE Queue, WDFREQUEST Request, size_t OutputBufferLength,
+    size_t InputBufferLength, ULONG IoControlCode);
+VOID VirtualHidKeyboardEvtIoInternalDeviceControl(WDFQUEUE Queue, WDFREQUEST Request, size_t OutputBufferLength,
+    size_t InputBufferLength, ULONG IoControlCode);
+VOID VirtualHidKeyboardEvtIoRead(WDFQUEUE Queue, WDFREQUEST Request, size_t Length);
+NTSTATUS VirtualHidKeyboardGetDeviceDescriptor(PDEVICE_CONTEXT DeviceContext, WDFREQUEST Request, size_t* BytesReturned);
+NTSTATUS VirtualHidKeyboardGetDeviceAttributes(PDEVICE_CONTEXT DeviceContext, WDFREQUEST Request, size_t* BytesReturned);
+NTSTATUS VirtualHidKeyboardGetReportDescriptor(PDEVICE_CONTEXT DeviceContext, WDFREQUEST Request, size_t* BytesReturned);
+NTSTATUS VirtualHidKeyboardGetString(WDFREQUEST Request, size_t* BytesReturned);
+NTSTATUS VirtualHidKeyboardHandleReport(PDEVICE_CONTEXT DeviceContext, WDFREQUEST Request,
+    ULONG IoControlCode, size_t* BytesReturned);
+NTSTATUS VirtualHidKeyboardCompleteReadRequest(PDEVICE_CONTEXT DeviceContext, WDFREQUEST Request);
+NTSTATUS VirtualHidKeyboardInjectKey(PDEVICE_CONTEXT DeviceContext, WDFREQUEST Request, size_t* BytesReturned);
+
+
+
+NTSTATUS VirtualHidKeyboardTargetedInjectKey(PDEVICE_CONTEXT DeviceContext, WDFREQUEST Request, size_t* BytesReturned);
