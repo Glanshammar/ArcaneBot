@@ -5,9 +5,8 @@
 #include <windows.h>
 #include <stdio.h>
 #include "ArcaneShared.h"
-#include "ArcaneInterface.h"
-#include "MQ.h"
 #include <iostream>
+#include <utility>
 #include <csignal>
 #include <atomic>
 #include "json.hpp"
@@ -51,3 +50,25 @@ private:
     void ZmqDefaultMessageProcessing(const std::string& message, const std::string& timestamp);
     std::string GetCurrentTimestamp() const;
 };
+
+inline void Print() {
+    std::cout << std::endl;
+}
+
+template<typename T, typename... Args>
+inline void Print(T&& first, Args&&... args) {
+    std::cout << std::forward<T>(first);
+    if constexpr (sizeof...(args) > 0) {
+        std::cout << ' ';
+        Print(std::forward<Args>(args)...);
+    }
+    else {
+        std::cout << std::endl;
+    }
+}
+
+#define ARCANE_DEVICE_TYPE 0x8000
+#define ARCANE_CLICK CTL_CODE(ARCANE_DEVICE_TYPE, 0x800, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define ARCANE_RIGHTCLICK CTL_CODE(ARCANE_DEVICE_TYPE, 0x801, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define ARCANE_MENUCLICK CTL_CODE(ARCANE_DEVICE_TYPE, 0x802, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define ARCANE_KEYPRESS CTL_CODE(ARCANE_DEVICE_TYPE, 0x803, METHOD_BUFFERED, FILE_ANY_ACCESS)

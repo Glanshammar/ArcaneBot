@@ -20,9 +20,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ArcaneInterface.cpp" />
+    <ClCompile Include="ArcaneKeyboard.cpp" />
+    <ClCompile Include="ArcaneMouse.cpp" />
+    <ClCompile Include="ArcaneMouse.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ArcaneInterface.h" />
+    <ClInclude Include="ArcaneKeyboard.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

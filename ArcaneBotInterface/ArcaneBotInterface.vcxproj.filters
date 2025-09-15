@@ -18,9 +18,21 @@
     <ClCompile Include="ArcaneInterface.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ArcaneKeyboard.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ArcaneMouse.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ArcaneMouse.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ArcaneInterface.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ArcaneKeyboard.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
