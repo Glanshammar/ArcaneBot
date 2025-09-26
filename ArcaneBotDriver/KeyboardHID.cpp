@@ -70,6 +70,7 @@ NTSTATUS VirtualHidKeyboardEvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT Device
 
     deviceContext = GetDeviceContext(device);
     deviceContext->Device = device;
+	deviceContext->DeviceType = DEVICE_TYPE_KEYBOARD;
     deviceContext->HasPendingReport = FALSE;
     RtlZeroMemory(&deviceContext->CurrentInputReport, sizeof(KEYBOARD_INPUT_REPORT));
 
@@ -114,7 +115,7 @@ NTSTATUS VirtualHidKeyboardEvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT Device
     queueConfig.EvtIoInternalDeviceControl = VirtualHidKeyboardEvtIoInternalDeviceControl;
     queueConfig.EvtIoRead = VirtualHidKeyboardEvtIoRead;
 
-    status = WdfIoQueueCreate(device, &queueConfig, WDF_NO_OBJECT_ATTRIBUTES, &deviceContext->DefaultQueue);
+    status = WdfIoQueueCreate(device, &queueConfig, WDF_NO_OBJECT_ATTRIBUTES, &deviceContext->WdfQueue);
     if (!NT_SUCCESS(status)) {
         KdPrint(("ArcaneKeyboard: WdfIoQueueCreate failed: 0x%x\n", status));
         return status;
@@ -185,8 +186,6 @@ VOID VirtualHidKeyboardEvtIoDeviceControl(
     case IOCTL_HID_SET_FEATURE:
         status = VirtualHidKeyboardHandleReport(deviceContext, Request, IoControlCode, &bytesReturned);
         break;
-
-        // Handle keyboard injection IOCTLs
     case KEYBOARD_INJECT:
         status = VirtualHidKeyboardInjectKey(deviceContext, Request, &bytesReturned);
         break;
@@ -422,27 +421,28 @@ NTSTATUS VirtualHidKeyboardInjectKey(
         return status;
     }
 
-    // Validate the request
-    if (injectionRequest.KeyCount > 50) {
+    if (injectionRequest.KeyCount > 6) {
         return STATUS_INVALID_PARAMETER;
     }
 
     // Prepare the input report
-    DeviceContext->CurrentInputReport.Modifier = injectionRequest.Modifier;
-    DeviceContext->CurrentInputReport.Reserved = 0;
+    if (DeviceContext->DeviceType == DEVICE_TYPE_KEYBOARD) {
+        RtlZeroMemory(&DeviceContext->CurrentInputReport.KeyboardReport, sizeof(KEYBOARD_INPUT_REPORT));
+        DeviceContext->CurrentInputReport.KeyboardReport.Modifier = injectionRequest.Modifier;
 
-    RtlZeroMemory(DeviceContext->CurrentInputReport.KeyCode, sizeof(DeviceContext->CurrentInputReport.KeyCode));
-
-    for (UCHAR i = 0; i < injectionRequest.KeyCount; i++) {
-        DeviceContext->CurrentInputReport.KeyCode[i] = injectionRequest.KeyCodes[i];
+        for (UCHAR i = 0; i < injectionRequest.KeyCount; i++) {
+            DeviceContext->CurrentInputReport.KeyboardReport.KeyCode[i] = injectionRequest.KeyCodes[i];
+        }
     }
+    else {
+        return STATUS_INVALID_DEVICE_REQUEST;
+	}
 
     DeviceContext->HasPendingReport = TRUE;
 
     // Check if there are any pending read requests
     status = WdfIoQueueRetrieveNextRequest(DeviceContext->PendingReadQueue, &pendingRequest);
     if (NT_SUCCESS(status)) {
-        // Complete the pending read request
         VirtualHidKeyboardCompleteReadRequest(DeviceContext, pendingRequest);
     }
 
@@ -458,6 +458,7 @@ NTSTATUS VirtualHidKeyboardTargetedInjectKey(
     NTSTATUS status = STATUS_SUCCESS;
     WDFMEMORY memory;
     KEY_INJECTION_REQUEST injectionRequest;
+    WDFREQUEST pendingRequest = NULL;
     PEPROCESS targetProcess = NULL;
     KAPC_STATE apcState;
 
@@ -476,8 +477,8 @@ NTSTATUS VirtualHidKeyboardTargetedInjectKey(
         return status;
     }
 
-    // Validate the request
-    if (injectionRequest.KeyCount > 50) {
+    // Validate the request - now checking against 6 instead of 50
+    if (injectionRequest.KeyCount > 6) {
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -494,19 +495,25 @@ NTSTATUS VirtualHidKeyboardTargetedInjectKey(
     }
 
     // Prepare the input report
-    DeviceContext->CurrentInputReport.Modifier = injectionRequest.Modifier;
-    DeviceContext->CurrentInputReport.Reserved = 0;
+    if (DeviceContext->DeviceType == DEVICE_TYPE_KEYBOARD) {
+        RtlZeroMemory(&DeviceContext->CurrentInputReport.KeyboardReport, sizeof(KEYBOARD_INPUT_REPORT));
+        DeviceContext->CurrentInputReport.KeyboardReport.Modifier = injectionRequest.Modifier;
 
-    RtlZeroMemory(DeviceContext->CurrentInputReport.KeyCode, sizeof(DeviceContext->CurrentInputReport.KeyCode));
-
-    for (UCHAR i = 0; i < injectionRequest.KeyCount; i++) {
-        DeviceContext->CurrentInputReport.KeyCode[i] = injectionRequest.KeyCodes[i];
+        for (UCHAR i = 0; i < injectionRequest.KeyCount; i++) {
+            DeviceContext->CurrentInputReport.KeyboardReport.KeyCode[i] = injectionRequest.KeyCodes[i];
+        }
     }
+    else {
+        if (injectionRequest.ProcessId != 0) {
+            KeUnstackDetachProcess(&apcState);
+            ObDereferenceObject(targetProcess);
+        }
+        return STATUS_INVALID_DEVICE_REQUEST;
+	}
 
     DeviceContext->HasPendingReport = TRUE;
 
     // Check if there are any pending read requests
-    WDFREQUEST pendingRequest = NULL;
     status = WdfIoQueueRetrieveNextRequest(DeviceContext->PendingReadQueue, &pendingRequest);
     if (NT_SUCCESS(status)) {
         VirtualHidKeyboardCompleteReadRequest(DeviceContext, pendingRequest);
@@ -548,11 +555,16 @@ NTSTATUS VirtualHidKeyboardPressKey(
     }
 
     // Prepare the input report with a single key
-    DeviceContext->CurrentInputReport.Modifier = keyRequest.Modifier;
-    DeviceContext->CurrentInputReport.Reserved = 0;
+    DeviceContext->CurrentInputReport.KeyboardReport.Modifier = keyRequest.Modifier;
+    DeviceContext->CurrentInputReport.KeyboardReport.Reserved = 0;
 
-    RtlZeroMemory(DeviceContext->CurrentInputReport.KeyCode, sizeof(DeviceContext->CurrentInputReport.KeyCode));
-    DeviceContext->CurrentInputReport.KeyCode[0] = keyRequest.KeyCode;
+    if (DeviceContext->DeviceType == DEVICE_TYPE_KEYBOARD) {
+        RtlZeroMemory(DeviceContext->CurrentInputReport.KeyboardReport.KeyCode, sizeof(DeviceContext->CurrentInputReport.KeyboardReport.KeyCode));
+        DeviceContext->CurrentInputReport.KeyboardReport.KeyCode[0] = keyRequest.KeyCode;
+    }
+    else {
+		return STATUS_INVALID_DEVICE_REQUEST;
+	}
 
     DeviceContext->HasPendingReport = TRUE;
 
