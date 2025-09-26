@@ -2,7 +2,6 @@
 
 #include <cstdint>
 
-const wchar_t DRIVER_DEVICE_PATH[] = L"\\\\.\\ArcaneDriver";
 
 class RuneClient {
 private:
