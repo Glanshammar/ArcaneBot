@@ -21,9 +21,9 @@ void SignalHandler(int32_t signal) {
 ArcaneInterface::ArcaneInterface()
     : context_(1), socket_(context_, ZMQ_PULL)
 {
-    // Open a handle to the driver
+    // Open a handle to the keyboard device directly
     hDevice = CreateFileW(
-        DRIVER_DEVICE_PATH,
+        L"\\\\.\\ArcaneKeyboard",
         GENERIC_READ | GENERIC_WRITE,
         FILE_SHARE_READ | FILE_SHARE_WRITE,
         NULL,
@@ -34,10 +34,10 @@ ArcaneInterface::ArcaneInterface()
 
     if (hDevice == INVALID_HANDLE_VALUE) {
         DWORD errorCode = GetLastError();
-        throw std::runtime_error("Failed to open device. Error code: " + std::to_string(errorCode));
+        throw std::runtime_error("Failed to open keyboard device. Error code: " + std::to_string(errorCode));
     }
 
-    std::cout << "Successfully opened device handle." << std::endl;
+    std::cout << "Successfully opened keyboard device handle." << std::endl;
 }
 
 ArcaneInterface::~ArcaneInterface() {
