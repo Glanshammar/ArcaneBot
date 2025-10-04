@@ -5,8 +5,6 @@ VisualStudioVersion = 17.14.36414.22
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ArcaneBotDriver", "ArcaneBotDriver\ArcaneBotDriver.vcxproj", "{73D0987E-F747-5F90-1CA0-CCD38CE53DE2}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ArcaneBotShared", "ArcaneBotShared\ArcaneBotShared.vcxproj", "{19B029AA-B81C-4644-A55C-551D3C6C42D4}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ArcaneBotInterface", "ArcaneBotInterface\ArcaneBotInterface.vcxproj", "{466E14F5-A4BB-455A-9015-14D5C7ACBC3E}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ArcaneTesting", "ArcaneTesting\ArcaneTesting.vcxproj", "{4A3F6901-31A7-47FE-A3F7-5826872E4401}"
@@ -31,14 +29,6 @@ Global
 		{73D0987E-F747-5F90-1CA0-CCD38CE53DE2}.Release|x64.ActiveCfg = Release|x64
 		{73D0987E-F747-5F90-1CA0-CCD38CE53DE2}.Release|x64.Build.0 = Release|x64
 		{73D0987E-F747-5F90-1CA0-CCD38CE53DE2}.Release|x64.Deploy.0 = Release|x64
-		{19B029AA-B81C-4644-A55C-551D3C6C42D4}.Debug|ARM64.ActiveCfg = Debug|x64
-		{19B029AA-B81C-4644-A55C-551D3C6C42D4}.Debug|ARM64.Build.0 = Debug|x64
-		{19B029AA-B81C-4644-A55C-551D3C6C42D4}.Debug|x64.ActiveCfg = Debug|x64
-		{19B029AA-B81C-4644-A55C-551D3C6C42D4}.Debug|x64.Build.0 = Debug|x64
-		{19B029AA-B81C-4644-A55C-551D3C6C42D4}.Release|ARM64.ActiveCfg = Release|x64
-		{19B029AA-B81C-4644-A55C-551D3C6C42D4}.Release|ARM64.Build.0 = Release|x64
-		{19B029AA-B81C-4644-A55C-551D3C6C42D4}.Release|x64.ActiveCfg = Release|x64
-		{19B029AA-B81C-4644-A55C-551D3C6C42D4}.Release|x64.Build.0 = Release|x64
 		{466E14F5-A4BB-455A-9015-14D5C7ACBC3E}.Debug|ARM64.ActiveCfg = Debug|x64
 		{466E14F5-A4BB-455A-9015-14D5C7ACBC3E}.Debug|ARM64.Build.0 = Debug|x64
 		{466E14F5-A4BB-455A-9015-14D5C7ACBC3E}.Debug|x64.ActiveCfg = Debug|x64
