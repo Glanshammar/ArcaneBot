@@ -1,13 +1,13 @@
 #include <windows.h>
+
 #include <stdio.h>
-#include "ArcaneShared.h"
-#include "ArcaneInterface.h"
-#include "MQ.h"
 #include <iostream>
 #include <csignal>
 #include <atomic>
-#include "json.hpp"
 #include <stdexcept>
+
+#include "ArcaneInterface.h"
+#include "json.hpp"
 
 std::atomic<bool> global_running{ true };
 
@@ -81,21 +81,49 @@ bool ArcaneInterface::HandleCommand(const std::string& jsonString) {
         std::string command = jsonData.at("command");
         auto args = jsonData.at("arguments");
 
-        
         if (command == "KEYPRESS") {
-            ArcaneKeypressData keyData = { 0 };
-            return SendToKernel(ARCANE_KEYPRESS, &keyData, sizeof(keyData));
+            SINGLE_KEY_REQUEST keyRequest = { 0 };
+            keyRequest.KeyCode = args.at(0);        // Key code
+            keyRequest.Modifier = args.at(1);       // Modifier
+            keyRequest.ProcessId = args.at(2);      // Target process ID
+
+            return SendToKernel(KEYBOARD_PRESS, &keyRequest, sizeof(keyRequest));
         }
-        else if (command == "MENUCLICK") {
-			int8_t menu = args.at(0);
-            return SendToKernel(ARCANE_MENUCLICK, &menu, sizeof(menu));
+        else if (command == "KEYINJECT") {
+            KEY_INJECTION_REQUEST injectRequest = { 0 };
+            injectRequest.Modifier = args.at(0);    // Modifier
+            injectRequest.ProcessId = args.at(1);   // Target process ID
+
+            auto keyCodes = args.at(2); // Array of key codes
+            injectRequest.KeyCount = static_cast<UCHAR>(keyCodes.size());
+
+            for (size_t i = 0; i < keyCodes.size() && i < 6; i++) {
+                injectRequest.KeyCodes[i] = keyCodes.at(i);
+            }
+
+            return SendToKernel(KEYBOARD_INJECT, &injectRequest, sizeof(injectRequest));
+        }
+        else if (command == "KEYRELEASE") {
+            ULONG_PTR processId = args.at(0); // Target process ID for release
+            return SendToKernel(KEYBOARD_RELEASE, &processId, sizeof(processId));
         }
         else if (command == "LEFTCLICK") {
-            ArcaneClickData clickData = {
-                args.at(0),
-                args.at(1)
+            MOUSE_CLICK_REQUEST clickData = {
+                args.at(0),  // x
+                args.at(1),  // y
+                0,           // left button
+                args.at(2)   // process ID
             };
-            return SendToKernel(ARCANE_CLICK, &clickData, sizeof(clickData));
+            return SendToKernel(MOUSE_CLICK, &clickData, sizeof(clickData));
+        }
+        else if (command == "RIGHTCLICK") {
+            MOUSE_CLICK_REQUEST clickData = {
+                args.at(0),  // x
+                args.at(1),  // y  
+                1,           // right button
+                args.at(2)   // process ID
+            };
+            return SendToKernel(MOUSE_RIGHTCLICK, &clickData, sizeof(clickData));
         }
 
         std::cerr << "Unknown command: " << command << std::endl;

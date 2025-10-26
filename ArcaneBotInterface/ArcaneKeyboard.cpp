@@ -2,8 +2,6 @@
 #include "ArcaneKeyboard.h"
 #include <iostream>
 
-// Define the IOCTL code
-#define KEYBOARD_INJECT CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 VirtualKeyboard::VirtualKeyboard() : hDevice(INVALID_HANDLE_VALUE), isOpen(false) {
 }
@@ -51,8 +49,8 @@ bool VirtualKeyboard::InjectKeys(UCHAR modifier, const std::vector<UCHAR>& keyCo
         return false;
     }
 
-    if (keyCodes.size() > 50) {
-        std::cerr << "Too many key codes. Maximum is 50." << std::endl;
+    if (keyCodes.size() > 6) {
+        std::cerr << "Too many key codes. Maximum is 6." << std::endl;
         return false;
     }
 
@@ -88,8 +86,8 @@ bool VirtualKeyboard::InjectKeysTargeted(ULONG_PTR processId, UCHAR modifier, co
         return false;
     }
 
-    if (keyCodes.size() > 50) {
-        std::cerr << "Too many key codes. Maximum is 50." << std::endl;
+    if (keyCodes.size() > 6) {
+        std::cerr << "Too many key codes. Maximum is 6." << std::endl;
         return false;
     }
 
