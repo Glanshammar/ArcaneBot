@@ -27,9 +27,6 @@
     <ClCompile Include="Driver.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DriverFunctions.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="KeyboardHID.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

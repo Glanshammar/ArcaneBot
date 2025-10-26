@@ -6,7 +6,6 @@
 #include <hidport.h>
 #include <hidsdi.h>
 #include <initguid.h>
-#include "ArcaneShared.h"
 
 // GUID for virtual keyboard device interface
 DEFINE_GUID(ARCANE_KEYBOARD_GUID,
@@ -17,9 +16,8 @@ DEFINE_GUID(ARCANE_KEYBOARD_GUID,
 #define MOUSE_RIGHTCLICK CTL_CODE(FILE_DEVICE_UNKNOWN, 0x801, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define MOUSE_MENUCLICK CTL_CODE(FILE_DEVICE_UNKNOWN, 0x802, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define KEYBOARD_INJECT CTL_CODE(FILE_DEVICE_UNKNOWN, 0x803, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define KEYBOARD_TARGETED_INJECT CTL_CODE(FILE_DEVICE_UNKNOWN, 0x804, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define KEYBOARD_PRESS CTL_CODE(FILE_DEVICE_UNKNOWN, 0x805, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define KEYBOARD_RELEASE CTL_CODE(FILE_DEVICE_UNKNOWN, 0x806, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define KEYBOARD_PRESS CTL_CODE(FILE_DEVICE_UNKNOWN, 0x804, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define KEYBOARD_RELEASE CTL_CODE(FILE_DEVICE_UNKNOWN, 0x805, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 #define DEVICE_TYPE_KEYBOARD 0
 #define DEVICE_TYPE_MOUSE 1
@@ -41,6 +39,14 @@ typedef struct _SINGLE_KEY_REQUEST {
     UCHAR KeyCode;
     UCHAR Modifier;
 } SINGLE_KEY_REQUEST, * PSINGLE_KEY_REQUEST;
+
+// Structure for mouse click requests
+typedef struct _MOUSE_CLICK_REQUEST {
+    INT32 x;
+    INT32 y;
+	UCHAR button; // 0 = left, 1 = right, 2 = middle -- Or could be used for menu option
+    ULONG_PTR processId; // Target process ID
+} MOUSE_CLICK_REQUEST, * PMOUSE_CLICK_REQUEST;
 
 // Keyboard input report structure
 typedef struct _KEYBOARD_INPUT_REPORT {
@@ -83,6 +89,6 @@ NTSTATUS VirtualHidKeyboardHandleReport(PDEVICE_CONTEXT DeviceContext, WDFREQUES
     ULONG IoControlCode, size_t* BytesReturned);
 NTSTATUS VirtualHidKeyboardCompleteReadRequest(PDEVICE_CONTEXT DeviceContext, WDFREQUEST Request);
 NTSTATUS VirtualHidKeyboardInjectKey(PDEVICE_CONTEXT DeviceContext, WDFREQUEST Request, size_t* BytesReturned);
-NTSTATUS VirtualHidKeyboardTargetedInjectKey(PDEVICE_CONTEXT DeviceContext, WDFREQUEST Request, size_t* BytesReturned);
 NTSTATUS VirtualHidKeyboardPressKey(PDEVICE_CONTEXT DeviceContext, WDFREQUEST Request, size_t* BytesReturned);
 NTSTATUS VirtualHidKeyboardReleaseKeys(PDEVICE_CONTEXT DeviceContext, WDFREQUEST Request, size_t* BytesReturned);
+VOID DriverUnload(WDFDRIVER Driver);

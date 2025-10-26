@@ -92,9 +92,8 @@ NTSTATUS VirtualHidKeyboardEvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT Device
     deviceContext->HidDeviceAttributes.ProductID = 0x5678;
     deviceContext->HidDeviceAttributes.VersionNumber = 0x0100;
 
-    // Fix: Cast the return value to PHID_DESCRIPTOR
-    deviceContext->HidDescriptor = (PHID_DESCRIPTOR)ExAllocatePoolWithTag(
-        NonPagedPool,
+    deviceContext->HidDescriptor = (PHID_DESCRIPTOR)ExAllocatePool2(
+        POOL_FLAG_NON_PAGED,
         sizeof(HID_DESCRIPTOR),
         'yHkV');
 
@@ -188,10 +187,6 @@ VOID VirtualHidKeyboardEvtIoDeviceControl(
         break;
     case KEYBOARD_INJECT:
         status = VirtualHidKeyboardInjectKey(deviceContext, Request, &bytesReturned);
-        break;
-
-    case KEYBOARD_TARGETED_INJECT:
-        status = VirtualHidKeyboardTargetedInjectKey(deviceContext, Request, &bytesReturned);
         break;
 
     case KEYBOARD_PRESS:
@@ -331,6 +326,7 @@ NTSTATUS VirtualHidKeyboardGetString(
     WDFREQUEST Request,
     size_t* BytesReturned)
 {
+    UNREFERENCED_PARAMETER(Request);
     *BytesReturned = 0;
     return STATUS_SUCCESS;
 }
@@ -405,65 +401,13 @@ NTSTATUS VirtualHidKeyboardInjectKey(
     WDFMEMORY memory;
     KEY_INJECTION_REQUEST injectionRequest;
     WDFREQUEST pendingRequest = NULL;
-
-    status = WdfRequestRetrieveInputMemory(Request, &memory);
-    if (!NT_SUCCESS(status)) {
-        return status;
-    }
-
-    status = WdfMemoryCopyToBuffer(
-        memory,
-        0,
-        &injectionRequest,
-        sizeof(KEY_INJECTION_REQUEST));
-
-    if (!NT_SUCCESS(status)) {
-        return status;
-    }
-
-    if (injectionRequest.KeyCount > 6) {
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    // Prepare the input report
-    if (DeviceContext->DeviceType == DEVICE_TYPE_KEYBOARD) {
-        RtlZeroMemory(&DeviceContext->CurrentInputReport.KeyboardReport, sizeof(KEYBOARD_INPUT_REPORT));
-        DeviceContext->CurrentInputReport.KeyboardReport.Modifier = injectionRequest.Modifier;
-
-        for (UCHAR i = 0; i < injectionRequest.KeyCount; i++) {
-            DeviceContext->CurrentInputReport.KeyboardReport.KeyCode[i] = injectionRequest.KeyCodes[i];
-        }
-    }
-    else {
-        return STATUS_INVALID_DEVICE_REQUEST;
-	}
-
-    DeviceContext->HasPendingReport = TRUE;
-
-    // Check if there are any pending read requests
-    status = WdfIoQueueRetrieveNextRequest(DeviceContext->PendingReadQueue, &pendingRequest);
-    if (NT_SUCCESS(status)) {
-        VirtualHidKeyboardCompleteReadRequest(DeviceContext, pendingRequest);
-    }
-
-    *BytesReturned = 0;
-    return status;
-}
-
-NTSTATUS VirtualHidKeyboardTargetedInjectKey(
-    PDEVICE_CONTEXT DeviceContext,
-    WDFREQUEST Request,
-    size_t* BytesReturned)
-{
-    NTSTATUS status = STATUS_SUCCESS;
-    WDFMEMORY memory;
-    KEY_INJECTION_REQUEST injectionRequest;
-    WDFREQUEST pendingRequest = NULL;
     PEPROCESS targetProcess = NULL;
-    KAPC_STATE apcState;
+    KAPC_STATE apcState = { 0 };
+    BOOLEAN processAttached = FALSE;
 
     status = WdfRequestRetrieveInputMemory(Request, &memory);
     if (!NT_SUCCESS(status)) {
+        KdPrint(("ArcaneKeyboard: Failed to retrieve input memory: 0x%x\n", status));
         return status;
     }
 
@@ -474,24 +418,32 @@ NTSTATUS VirtualHidKeyboardTargetedInjectKey(
         sizeof(KEY_INJECTION_REQUEST));
 
     if (!NT_SUCCESS(status)) {
+        KdPrint(("ArcaneKeyboard: Failed to copy request buffer: 0x%x\n", status));
         return status;
     }
 
-    // Validate the request - now checking against 6 instead of 50
+    // Validate the request
     if (injectionRequest.KeyCount > 6) {
+        KdPrint(("ArcaneKeyboard: Too many key codes: %d\n", injectionRequest.KeyCount));
         return STATUS_INVALID_PARAMETER;
     }
+
+    KdPrint(("ArcaneKeyboard: InjectKey - ProcessId: %lu, Modifier: 0x%x, KeyCount: %d\n",
+        injectionRequest.ProcessId, injectionRequest.Modifier, injectionRequest.KeyCount));
 
     // If a process ID was specified, attach to that process
     if (injectionRequest.ProcessId != 0) {
         status = PsLookupProcessByProcessId((HANDLE)injectionRequest.ProcessId, &targetProcess);
         if (!NT_SUCCESS(status)) {
-            KdPrint(("ArcaneKeyboard: Failed to find process with ID: %lu\n", injectionRequest.ProcessId));
+            KdPrint(("ArcaneKeyboard: Failed to find process with ID: %lu, status: 0x%x\n",
+                injectionRequest.ProcessId, status));
             return status;
         }
 
         // Attach to the target process context
         KeStackAttachProcess(targetProcess, &apcState);
+        processAttached = TRUE;
+        KdPrint(("ArcaneKeyboard: Attached to process: %lu\n", injectionRequest.ProcessId));
     }
 
     // Prepare the input report
@@ -501,33 +453,35 @@ NTSTATUS VirtualHidKeyboardTargetedInjectKey(
 
         for (UCHAR i = 0; i < injectionRequest.KeyCount; i++) {
             DeviceContext->CurrentInputReport.KeyboardReport.KeyCode[i] = injectionRequest.KeyCodes[i];
+            KdPrint(("ArcaneKeyboard: Key[%d]: 0x%x\n", i, injectionRequest.KeyCodes[i]));
         }
     }
     else {
-        if (injectionRequest.ProcessId != 0) {
-            KeUnstackDetachProcess(&apcState);
-            ObDereferenceObject(targetProcess);
-        }
-        return STATUS_INVALID_DEVICE_REQUEST;
-	}
+        status = STATUS_INVALID_DEVICE_REQUEST;
+        goto Cleanup;
+    }
 
     DeviceContext->HasPendingReport = TRUE;
 
     // Check if there are any pending read requests
     status = WdfIoQueueRetrieveNextRequest(DeviceContext->PendingReadQueue, &pendingRequest);
     if (NT_SUCCESS(status)) {
+        KdPrint(("ArcaneKeyboard: Completing pending read request\n"));
         VirtualHidKeyboardCompleteReadRequest(DeviceContext, pendingRequest);
     }
 
+Cleanup:
     // If we attached to a process, detach now
-    if (injectionRequest.ProcessId != 0) {
+    if (processAttached) {
         KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(targetProcess);
+        KdPrint(("ArcaneKeyboard: Detached from process\n"));
     }
 
     *BytesReturned = 0;
     return status;
 }
+
 
 NTSTATUS VirtualHidKeyboardPressKey(
     PDEVICE_CONTEXT DeviceContext,

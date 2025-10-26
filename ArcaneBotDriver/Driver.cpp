@@ -1,5 +1,4 @@
 #include "DriverFunctions.h"
-#include "ArcaneShared.h"
 
 // Control device context
 typedef struct _CONTROL_DEVICE_CONTEXT {
@@ -42,23 +41,14 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 
 VOID DriverUnload(WDFDRIVER Driver)
 {
+	UNREFERENCED_PARAMETER(Driver);
+
     NTSTATUS status;
     UNICODE_STRING symbolicLink;
     WDFDEVICE device = NULL;
     PDEVICE_CONTEXT deviceContext = NULL;
 
     KdPrint(("ArcaneDriver: Unloading\n"));
-
-    // Get the device object (you'll need to store it in the driver context)
-    // This assumes you've stored your device in the driver context
-    // If you have multiple devices, you'll need to iterate through them
-
-    // If you stored your device in the driver context, you can retrieve it like this:
-    // WDFDRIVER driver = WdfGetDriver();
-    // device = (WDFDEVICE)WdfObjectGetTypedContext(driver, YOUR_DRIVER_CONTEXT_TYPE)->Device;
-
-    // For now, let's assume you can get your device somehow
-    // If you only have one device, you might have stored it in a global variable
 
     // Delete the symbolic link for the keyboard device
     RtlInitUnicodeString(&symbolicLink, L"\\DosDevices\\ArcaneKeyboard");
