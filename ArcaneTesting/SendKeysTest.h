@@ -97,6 +97,8 @@ void TestSendKeys() {
 
 void TestSendKeys2() {
     VirtualKeyboard keyboard;
+    std::vector<ULONG_PTR> clients;
+
     if (!keyboard.Open()) {
         std::cerr << "Failed to open keyboard device" << std::endl;
         return;
@@ -110,6 +112,7 @@ void TestSendKeys2() {
     }
     // Inject keys into each found process
     for (const auto& proc : foundProcesses) {
+		clients.emplace_back(proc.processId);
         std::wcout << L"Injecting keys into process ID: " << proc.processId << L", Window Title: " << proc.windowTitle << std::endl;
         if (keyboard.InjectKeysTargeted(proc.processId, 0, { keyboard.CharToHidCode('H'),
                                                               keyboard.CharToHidCode('e'),
