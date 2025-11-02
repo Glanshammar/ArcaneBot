@@ -6,7 +6,7 @@
 #include <atomic>
 #include <stdexcept>
 
-#include "ArcaneInterface.h"
+#include "PhantomInterface.h"
 #include "json.hpp"
 
 std::atomic<bool> global_running{ true };
@@ -18,7 +18,7 @@ void SignalHandler(int32_t signal) {
     }
 }
 
-ArcaneInterface::ArcaneInterface()
+PhantomInterface::PhantomInterface()
     : context_(1), socket_(context_, ZMQ_PULL)
 {
     // Open a handle to the keyboard device directly
@@ -40,7 +40,7 @@ ArcaneInterface::ArcaneInterface()
     std::cout << "Successfully opened keyboard device handle." << std::endl;
 }
 
-ArcaneInterface::~ArcaneInterface() {
+PhantomInterface::~PhantomInterface() {
     if (hDevice != INVALID_HANDLE_VALUE) {
         CloseHandle(hDevice);
     }
@@ -48,8 +48,7 @@ ArcaneInterface::~ArcaneInterface() {
 }
 
 // ===== Kernel Communication =====
-
-bool ArcaneInterface::SendToKernel(DWORD ioctlCode, const void* inputData, size_t inputSize,
+bool PhantomInterface::SendToKernel(DWORD ioctlCode, const void* inputData, size_t inputSize,
     void* outputData, size_t outputSize, DWORD* bytesReturned) {
     DWORD localBytesReturned = 0;
     if (bytesReturned == nullptr) {
@@ -75,7 +74,7 @@ bool ArcaneInterface::SendToKernel(DWORD ioctlCode, const void* inputData, size_
     return true;
 }
 
-bool ArcaneInterface::HandleCommand(const std::string& jsonString) {
+bool PhantomInterface::HandleCommand(const std::string& jsonString) {
     try {
         json jsonData = json::parse(jsonString);
         std::string command = jsonData.at("command");
@@ -136,8 +135,7 @@ bool ArcaneInterface::HandleCommand(const std::string& jsonString) {
 }
 
 // ===== ZeroMQ =====
-
-bool ArcaneInterface::ZmqInitialize(const std::string& port) {
+bool PhantomInterface::ZmqInitialize(const std::string& port) {
     try {
         endpoint_ = "tcp://*:" + port;
         socket_.bind(endpoint_);
@@ -150,7 +148,7 @@ bool ArcaneInterface::ZmqInitialize(const std::string& port) {
     }
 }
 
-void ArcaneInterface::ZmqStart(MessageCallback callback) {
+void PhantomInterface::ZmqStart(MessageCallback callback) {
     if (running_) {
         std::cout << "ZeroMQ server is already running." << std::endl;
         return;
@@ -186,19 +184,19 @@ void ArcaneInterface::ZmqStart(MessageCallback callback) {
     std::cout << "ZeroMQ server stopped." << std::endl;
 }
 
-void ArcaneInterface::ZmqStop() {
+void PhantomInterface::ZmqStop() {
     running_ = false;
 }
 
-bool ArcaneInterface::ZmqIsRunning() const {
+bool PhantomInterface::ZmqIsRunning() const {
     return running_;
 }
 
-int ArcaneInterface::ZmqGetMessageCount() const {
+int PhantomInterface::ZmqGetMessageCount() const {
     return message_count_;
 }
 
-void ArcaneInterface::ZmqDefaultMessageProcessing(const std::string& message, const std::string& timestamp) {
+void PhantomInterface::ZmqDefaultMessageProcessing(const std::string& message, const std::string& timestamp) {
     std::cout << "[" << timestamp << "] "
         << "Received message #" << message_count_ << ": "
         << message << std::endl;
@@ -207,7 +205,7 @@ void ArcaneInterface::ZmqDefaultMessageProcessing(const std::string& message, co
     HandleCommand(message);
 }
 
-std::string ArcaneInterface::GetCurrentTimestamp() const {
+std::string PhantomInterface::GetCurrentTimestamp() const {
     auto now = std::chrono::system_clock::now();
     auto in_time_t = std::chrono::system_clock::to_time_t(now);
     std::stringstream ss;

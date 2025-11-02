@@ -45,7 +45,7 @@ typedef struct _MOUSE_CLICK_REQUEST {
     ULONG_PTR processId; // Target process ID
 } MOUSE_CLICK_REQUEST, * PMOUSE_CLICK_REQUEST;
 
-class ArcaneInterface {
+class PhantomInterface {
 private:
     // Driver handle
     HANDLE hDevice = INVALID_HANDLE_VALUE;
@@ -58,8 +58,8 @@ private:
     std::atomic<int> message_count_{ 0 };
 
 public:
-    ArcaneInterface();
-    ~ArcaneInterface();
+    PhantomInterface();
+    ~PhantomInterface();
 
     // Kernel communication
     bool SendToKernel(DWORD ioctlCode, const void* inputData = nullptr, size_t inputSize = 0,
