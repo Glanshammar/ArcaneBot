@@ -14,7 +14,7 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
     WDF_DRIVER_CONFIG config;
     NTSTATUS status;
 
-    KdPrint(("ArcaneDriver: DriverEntry\n"));
+    KdPrint(("PhantomDriver: DriverEntry\n"));
 
     // Initialize WDF driver
     WDF_DRIVER_CONFIG_INIT(&config, NULL);
@@ -23,18 +23,18 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 
     status = WdfDriverCreate(DriverObject, RegistryPath, WDF_NO_OBJECT_ATTRIBUTES, &config, WDF_NO_HANDLE);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("ArcaneDriver: WdfDriverCreate failed: 0x%x\n", status));
+        KdPrint(("PhantomDriver: WdfDriverCreate failed: 0x%x\n", status));
         return status;
     }
 
     // Create HID keyboard device directly
     status = VirtualHidKeyboardEvtDeviceAdd(WdfGetDriver(), NULL);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("ArcaneDriver: Failed to create HID keyboard device: 0x%x\n", status));
+        KdPrint(("PhantomDriver: Failed to create HID keyboard device: 0x%x\n", status));
         return status;
     }
 
-    KdPrint(("ArcaneDriver: Loaded successfully\n"));
+    KdPrint(("PhantomDriver: Loaded successfully\n"));
     return STATUS_SUCCESS;
 }
 
@@ -48,20 +48,20 @@ VOID DriverUnload(WDFDRIVER Driver)
     WDFDEVICE device = NULL;
     PDEVICE_CONTEXT deviceContext = NULL;
 
-    KdPrint(("ArcaneDriver: Unloading\n"));
+    KdPrint(("PhantomDriver: Unloading\n"));
 
     // Delete the symbolic link for the keyboard device
-    RtlInitUnicodeString(&symbolicLink, L"\\DosDevices\\ArcaneKeyboard");
+    RtlInitUnicodeString(&symbolicLink, L"\\DosDevices\\PhantomKeyboard");
     status = IoDeleteSymbolicLink(&symbolicLink);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("ArcaneDriver: Failed to delete symbolic link: 0x%x\n", status));
+        KdPrint(("PhantomDriver: Failed to delete symbolic link: 0x%x\n", status));
     }
 
     // If you have a control device, delete its symbolic link too
-    RtlInitUnicodeString(&symbolicLink, L"\\DosDevices\\ArcaneDriver");
+    RtlInitUnicodeString(&symbolicLink, L"\\DosDevices\\PhantomDriver");
     status = IoDeleteSymbolicLink(&symbolicLink);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("ArcaneDriver: Failed to delete control symbolic link: 0x%x\n", status));
+        KdPrint(("PhantomDriver: Failed to delete control symbolic link: 0x%x\n", status));
     }
 
     // If you have access to your device context, free the HID descriptor
@@ -74,5 +74,5 @@ VOID DriverUnload(WDFDRIVER Driver)
     }
 
     // WDF will handle the rest of the cleanup
-    KdPrint(("ArcaneDriver: Unload completed\n"));
+    KdPrint(("PhantomDriver: Unload completed\n"));
 }
