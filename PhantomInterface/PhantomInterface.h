@@ -2,13 +2,7 @@
 
 #include <windows.h>
 #include <winioctl.h>
-#include <stdio.h>
-#include <iostream>
-#include <utility>
-#include <csignal>
-#include <atomic>
-#include "json.hpp"
-#include <zmq.hpp>
+#include <string>
 
 #define MOUSE_CLICK CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define MOUSE_RIGHTCLICK CTL_CODE(FILE_DEVICE_UNKNOWN, 0x801, METHOD_BUFFERED, FILE_ANY_ACCESS)
@@ -18,10 +12,6 @@
 #define KEYBOARD_PRESS CTL_CODE(FILE_DEVICE_UNKNOWN, 0x805, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define KEYBOARD_RELEASE CTL_CODE(FILE_DEVICE_UNKNOWN, 0x806, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
-using json = nlohmann::json;
-
-void SignalHandler(int32_t signal);
-using MessageCallback = std::function<void(const std::string&, const std::string&)>;
 
 typedef struct _KEY_INJECTION_REQUEST {
     ULONG_PTR ProcessId;
@@ -37,7 +27,6 @@ typedef struct _SINGLE_KEY_REQUEST {
     UCHAR Modifier;
 } SINGLE_KEY_REQUEST, * PSINGLE_KEY_REQUEST;
 
-// Add mouse structure
 typedef struct _MOUSE_CLICK_REQUEST {
     INT32 x;
     INT32 y;
@@ -45,39 +34,40 @@ typedef struct _MOUSE_CLICK_REQUEST {
     ULONG_PTR processId; // Target process ID
 } MOUSE_CLICK_REQUEST, * PMOUSE_CLICK_REQUEST;
 
-class PhantomInterface {
-private:
-    // Driver handle
-    HANDLE hDevice = INVALID_HANDLE_VALUE;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-    // ZeroMQ members
-    zmq::context_t context_;
-    zmq::socket_t socket_;
-    std::string endpoint_;
-    std::atomic<bool> running_{ false };
-    std::atomic<int> message_count_{ 0 };
+#ifdef PHANTOMINTERFACE_EXPORTS
+#define PHANTOM_API __declspec(dllexport)
+#else
+#define PHANTOM_API __declspec(dllimport)
+#endif
 
-public:
-    PhantomInterface();
-    ~PhantomInterface();
+    // Initialization
+    PHANTOM_API int initialize();
+    PHANTOM_API void shutdown();
+    PHANTOM_API int is_initialized();
 
-    // Kernel communication
-    bool SendToKernel(DWORD ioctlCode, const void* inputData = nullptr, size_t inputSize = 0,
-        void* outputData = nullptr, size_t outputSize = 0, DWORD* bytesReturned = nullptr);
-    bool HandleCommand(const std::string& jsonString);
-    HANDLE GetDeviceHandle() const { return hDevice; }
+    // Keyboard operations
+    PHANTOM_API int key_press(unsigned char key_code, unsigned char modifier, unsigned long process_id);
+    PHANTOM_API int key_release(unsigned long process_id);
+    PHANTOM_API int type_string(const char* text, unsigned long process_id);
+    PHANTOM_API int key_inject(unsigned char modifier, const unsigned char* key_codes, unsigned char key_count, unsigned long process_id);
 
-    // ZeroMQ server functionality (prefixed with Zmq)
-    bool ZmqInitialize(const std::string& port = "5555");
-    void ZmqStart(MessageCallback callback = nullptr);
-    void ZmqStop();
-    bool ZmqIsRunning() const;
-    int ZmqGetMessageCount() const;
+    // Mouse operations
+    PHANTOM_API int left_click(int x, int y, unsigned long process_id);
+    PHANTOM_API int right_click(int x, int y, unsigned long process_id);
+    PHANTOM_API int menu_click(int x, int y, unsigned long process_id);
 
-private:
-    void ZmqDefaultMessageProcessing(const std::string& message, const std::string& timestamp);
-    std::string GetCurrentTimestamp() const;
-};
+    // Helper functions
+    PHANTOM_API unsigned char char_to_hid_code(char c);
+    PHANTOM_API unsigned char vk_to_hid_code(unsigned int virtual_key);
+#ifdef __cplusplus
+}
+#endif
+
+PHANTOM_API std::string GetCurrentTimestamp();
 
 inline void Print() {
     std::cout << std::endl;
