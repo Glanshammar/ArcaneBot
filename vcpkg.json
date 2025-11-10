@@ -1,8 +1,7 @@
 {
-  "name": "arcanebot",
+  "name": "axon",
   "version": "1.0.0",
   "dependencies": [
-    "cppzmq"
   ],
   "builtin-baseline": "b1e15efef6758eaa0beb0a8732cfa66f6a68a81d"
 }
