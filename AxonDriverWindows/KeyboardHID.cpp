@@ -36,7 +36,7 @@ const UCHAR g_KeyboardHidReportDescriptor[] = {
     0xC0               // End Collection
 };
 
-NTSTATUS VirtualHidKeyboardEvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT DeviceInit)
+NTSTATUS KeyboardDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT DeviceInit)
 {
     NTSTATUS status;
     WDFDEVICE device;
@@ -47,15 +47,15 @@ NTSTATUS VirtualHidKeyboardEvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT Device
 
     UNREFERENCED_PARAMETER(Driver);
 
-    KdPrint(("PhantomKeyboard: PhantomKeyboardEvtDeviceAdd\n"));
+    KdPrint(("AxonKeyboard: AxonKeyboardEvtDeviceAdd\n"));
 
     WdfDeviceInitSetDeviceType(DeviceInit, FILE_DEVICE_KEYBOARD);
     WdfDeviceInitSetExclusive(DeviceInit, FALSE);
 
-    RtlInitUnicodeString(&deviceName, L"\\Device\\PhantomKeyboard");
+    RtlInitUnicodeString(&deviceName, L"\\Device\\AxonKeyboard");
     status = WdfDeviceInitAssignName(DeviceInit, &deviceName);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("PhantomKeyboard: WdfDeviceInitAssignName failed: 0x%x\n", status));
+        KdPrint(("AxonKeyboard: WdfDeviceInitAssignName failed: 0x%x\n", status));
         return status;
     }
 
@@ -64,7 +64,7 @@ NTSTATUS VirtualHidKeyboardEvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT Device
 
     status = WdfDeviceCreate(&DeviceInit, &deviceAttributes, &device);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("PhantomKeyboard: WdfDeviceCreate failed: 0x%x\n", status));
+        KdPrint(("AxonKeyboard: WdfDeviceCreate failed: 0x%x\n", status));
         return status;
     }
 
@@ -74,16 +74,16 @@ NTSTATUS VirtualHidKeyboardEvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT Device
     deviceContext->HasPendingReport = FALSE;
     RtlZeroMemory(&deviceContext->CurrentInputReport, sizeof(KEYBOARD_INPUT_REPORT));
 
-    RtlInitUnicodeString(&symbolicLink, L"\\DosDevices\\PhantomKeyboard");
+    RtlInitUnicodeString(&symbolicLink, L"\\DosDevices\\AxonKeyboard");
     status = WdfDeviceCreateSymbolicLink(device, &symbolicLink);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("PhantomKeyboard: WdfDeviceCreateSymbolicLink failed: 0x%x\n", status));
+        KdPrint(("AxonKeyboard: WdfDeviceCreateSymbolicLink failed: 0x%x\n", status));
         return status;
     }
 
     status = WdfDeviceCreateDeviceInterface(device, &ARCANE_KEYBOARD_GUID, NULL);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("PhantomKeyboard: WdfDeviceCreateDeviceInterface failed: 0x%x\n", status));
+        KdPrint(("AxonKeyboard: WdfDeviceCreateDeviceInterface failed: 0x%x\n", status));
         return status;
     }
 
@@ -116,19 +116,19 @@ NTSTATUS VirtualHidKeyboardEvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT Device
 
     status = WdfIoQueueCreate(device, &queueConfig, WDF_NO_OBJECT_ATTRIBUTES, &deviceContext->WdfQueue);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("PhantomKeyboard: WdfIoQueueCreate failed: 0x%x\n", status));
+        KdPrint(("AxonKeyboard: WdfIoQueueCreate failed: 0x%x\n", status));
         return status;
     }
 
     WDF_IO_QUEUE_CONFIG_INIT(&queueConfig, WdfIoQueueDispatchManual);
     status = WdfIoQueueCreate(device, &queueConfig, WDF_NO_OBJECT_ATTRIBUTES, &deviceContext->PendingReadQueue);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("PhantomKeyboard: WdfIoQueueCreate for pending reads failed: 0x%x\n", status));
+        KdPrint(("AxonKeyboard: WdfIoQueueCreate for pending reads failed: 0x%x\n", status));
         return status;
     }
 
     deviceContext->IsInitialized = TRUE;
-    KdPrint(("PhantomKeyboard: Device created successfully\n"));
+    KdPrint(("AxonKeyboard: Device created successfully\n"));
 
     return status;
 }
@@ -137,7 +137,7 @@ VOID VirtualHidKeyboardEvtDeviceContextCleanup(WDFOBJECT DeviceObject)
 {
     PDEVICE_CONTEXT deviceContext = GetDeviceContext((WDFDEVICE)DeviceObject);
 
-    KdPrint(("PhantomKeyboard: VirtualHidKeyboardEvtDeviceContextCleanup\n"));
+    KdPrint(("AxonKeyboard: VirtualHidKeyboardEvtDeviceContextCleanup\n"));
 
     if (deviceContext->HidDescriptor != NULL) {
         ExFreePoolWithTag(deviceContext->HidDescriptor, 'yHkV');
@@ -160,7 +160,7 @@ VOID VirtualHidKeyboardEvtIoDeviceControl(
     UNREFERENCED_PARAMETER(OutputBufferLength);
     UNREFERENCED_PARAMETER(InputBufferLength);
 
-    KdPrint(("PhantomKeyboard: VirtualHidKeyboardEvtIoDeviceControl - IoControlCode: 0x%x\n", IoControlCode));
+    KdPrint(("AxonKeyboard: VirtualHidKeyboardEvtIoDeviceControl - IoControlCode: 0x%x\n", IoControlCode));
 
     switch (IoControlCode) {
     case IOCTL_HID_GET_DEVICE_DESCRIPTOR:
@@ -226,7 +226,7 @@ VOID VirtualHidKeyboardEvtIoRead(
 
     UNREFERENCED_PARAMETER(Length);
 
-    KdPrint(("PhantomKeyboard: VirtualHidKeyboardEvtIoRead\n"));
+    KdPrint(("AxonKeyboard: VirtualHidKeyboardEvtIoRead\n"));
 
     if (deviceContext->HasPendingReport) {
         // We have a report to send, complete the request immediately
@@ -407,7 +407,7 @@ NTSTATUS VirtualHidKeyboardInjectKey(
 
     status = WdfRequestRetrieveInputMemory(Request, &memory);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("PhantomKeyboard: Failed to retrieve input memory: 0x%x\n", status));
+        KdPrint(("AxonKeyboard: Failed to retrieve input memory: 0x%x\n", status));
         return status;
     }
 
@@ -418,24 +418,24 @@ NTSTATUS VirtualHidKeyboardInjectKey(
         sizeof(KEY_INJECTION_REQUEST));
 
     if (!NT_SUCCESS(status)) {
-        KdPrint(("PhantomKeyboard: Failed to copy request buffer: 0x%x\n", status));
+        KdPrint(("AxonKeyboard: Failed to copy request buffer: 0x%x\n", status));
         return status;
     }
 
     // Validate the request
     if (injectionRequest.KeyCount > 6) {
-        KdPrint(("PhantomKeyboard: Too many key codes: %d\n", injectionRequest.KeyCount));
+        KdPrint(("AxonKeyboard: Too many key codes: %d\n", injectionRequest.KeyCount));
         return STATUS_INVALID_PARAMETER;
     }
 
-    KdPrint(("PhantomKeyboard: InjectKey - ProcessId: %lu, Modifier: 0x%x, KeyCount: %d\n",
+    KdPrint(("AxonKeyboard: InjectKey - ProcessId: %lu, Modifier: 0x%x, KeyCount: %d\n",
         injectionRequest.ProcessId, injectionRequest.Modifier, injectionRequest.KeyCount));
 
     // If a process ID was specified, attach to that process
     if (injectionRequest.ProcessId != 0) {
         status = PsLookupProcessByProcessId((HANDLE)injectionRequest.ProcessId, &targetProcess);
         if (!NT_SUCCESS(status)) {
-            KdPrint(("PhantomKeyboard: Failed to find process with ID: %lu, status: 0x%x\n",
+            KdPrint(("AxonKeyboard: Failed to find process with ID: %lu, status: 0x%x\n",
                 injectionRequest.ProcessId, status));
             return status;
         }
@@ -443,7 +443,7 @@ NTSTATUS VirtualHidKeyboardInjectKey(
         // Attach to the target process context
         KeStackAttachProcess(targetProcess, &apcState);
         processAttached = TRUE;
-        KdPrint(("PhantomKeyboard: Attached to process: %lu\n", injectionRequest.ProcessId));
+        KdPrint(("AxonKeyboard: Attached to process: %lu\n", injectionRequest.ProcessId));
     }
 
     // Prepare the input report
@@ -453,7 +453,7 @@ NTSTATUS VirtualHidKeyboardInjectKey(
 
         for (UCHAR i = 0; i < injectionRequest.KeyCount; i++) {
             DeviceContext->CurrentInputReport.KeyboardReport.KeyCode[i] = injectionRequest.KeyCodes[i];
-            KdPrint(("PhantomKeyboard: Key[%d]: 0x%x\n", i, injectionRequest.KeyCodes[i]));
+            KdPrint(("AxonKeyboard: Key[%d]: 0x%x\n", i, injectionRequest.KeyCodes[i]));
         }
     }
     else {
@@ -466,7 +466,7 @@ NTSTATUS VirtualHidKeyboardInjectKey(
     // Check if there are any pending read requests
     status = WdfIoQueueRetrieveNextRequest(DeviceContext->PendingReadQueue, &pendingRequest);
     if (NT_SUCCESS(status)) {
-        KdPrint(("PhantomKeyboard: Completing pending read request\n"));
+        KdPrint(("AxonKeyboard: Completing pending read request\n"));
         VirtualHidKeyboardCompleteReadRequest(DeviceContext, pendingRequest);
     }
 
@@ -475,7 +475,7 @@ Cleanup:
     if (processAttached) {
         KeUnstackDetachProcess(&apcState);
         ObDereferenceObject(targetProcess);
-        KdPrint(("PhantomKeyboard: Detached from process\n"));
+        KdPrint(("AxonKeyboard: Detached from process\n"));
     }
 
     *BytesReturned = 0;

@@ -14,7 +14,7 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
     WDF_DRIVER_CONFIG config;
     NTSTATUS status;
 
-    KdPrint(("PhantomDriver: DriverEntry\n"));
+    KdPrint(("AxonDriver: DriverEntry\n"));
 
     // Initialize WDF driver
     WDF_DRIVER_CONFIG_INIT(&config, NULL);
@@ -23,18 +23,11 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 
     status = WdfDriverCreate(DriverObject, RegistryPath, WDF_NO_OBJECT_ATTRIBUTES, &config, WDF_NO_HANDLE);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("PhantomDriver: WdfDriverCreate failed: 0x%x\n", status));
+        KdPrint(("AxonDriver: WdfDriverCreate failed: 0x%x\n", status));
         return status;
     }
 
-    // Create HID keyboard device directly
-    status = VirtualHidKeyboardEvtDeviceAdd(WdfGetDriver(), NULL);
-    if (!NT_SUCCESS(status)) {
-        KdPrint(("PhantomDriver: Failed to create HID keyboard device: 0x%x\n", status));
-        return status;
-    }
-
-    KdPrint(("PhantomDriver: Loaded successfully\n"));
+    KdPrint(("AxonDriver: Loaded successfully\n"));
     return STATUS_SUCCESS;
 }
 
@@ -48,20 +41,20 @@ VOID DriverUnload(WDFDRIVER Driver)
     WDFDEVICE device = NULL;
     PDEVICE_CONTEXT deviceContext = NULL;
 
-    KdPrint(("PhantomDriver: Unloading\n"));
+    KdPrint(("AxonDriver: Unloading\n"));
 
     // Delete the symbolic link for the keyboard device
-    RtlInitUnicodeString(&symbolicLink, L"\\DosDevices\\PhantomKeyboard");
+    RtlInitUnicodeString(&symbolicLink, L"\\DosDevices\\AxonKeyboard");
     status = IoDeleteSymbolicLink(&symbolicLink);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("PhantomDriver: Failed to delete symbolic link: 0x%x\n", status));
+        KdPrint(("AxonDriver: Failed to delete symbolic link: 0x%x\n", status));
     }
 
     // If you have a control device, delete its symbolic link too
-    RtlInitUnicodeString(&symbolicLink, L"\\DosDevices\\PhantomDriver");
+    RtlInitUnicodeString(&symbolicLink, L"\\DosDevices\\AxonDriver");
     status = IoDeleteSymbolicLink(&symbolicLink);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("PhantomDriver: Failed to delete control symbolic link: 0x%x\n", status));
+        KdPrint(("AxonDriver: Failed to delete control symbolic link: 0x%x\n", status));
     }
 
     // If you have access to your device context, free the HID descriptor
@@ -74,5 +67,5 @@ VOID DriverUnload(WDFDRIVER Driver)
     }
 
     // WDF will handle the rest of the cleanup
-    KdPrint(("PhantomDriver: Unload completed\n"));
+    KdPrint(("AxonDriver: Unload completed\n"));
 }

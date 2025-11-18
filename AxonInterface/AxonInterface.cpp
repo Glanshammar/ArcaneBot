@@ -47,7 +47,7 @@ namespace {
 }
 
 // ===== C API Implementation =====
-PHANTOM_API int initialize() {
+AXON_API int initialize() {
     std::lock_guard<std::mutex> lock(g_deviceMutex);
 
     if (g_hDevice != INVALID_HANDLE_VALUE) {
@@ -74,7 +74,7 @@ PHANTOM_API int initialize() {
     return 1;
 }
 
-PHANTOM_API void shutdown() {
+AXON_API void shutdown() {
     std::lock_guard<std::mutex> lock(g_deviceMutex);
 
     if (g_hDevice != INVALID_HANDLE_VALUE) {
@@ -83,13 +83,13 @@ PHANTOM_API void shutdown() {
     }
 }
 
-PHANTOM_API int is_initialized() {
+AXON_API int is_initialized() {
     std::lock_guard<std::mutex> lock(g_deviceMutex);
     return (g_hDevice != INVALID_HANDLE_VALUE) ? 1 : 0;
 }
 
 // Keyboard operations
-PHANTOM_API int key_press(unsigned char key_code, unsigned char modifier, unsigned long process_id) {
+AXON_API int key_press(unsigned char key_code, unsigned char modifier, unsigned long process_id) {
     SINGLE_KEY_REQUEST request = { 0 };
     request.KeyCode = key_code;
     request.Modifier = modifier;
@@ -98,12 +98,12 @@ PHANTOM_API int key_press(unsigned char key_code, unsigned char modifier, unsign
     return SendIoctl(KEYBOARD_PRESS, &request, sizeof(request)) ? 1 : 0;
 }
 
-PHANTOM_API int key_release(unsigned long process_id) {
+AXON_API int key_release(unsigned long process_id) {
     ULONG_PTR pid = process_id;
     return SendIoctl(KEYBOARD_RELEASE, &pid, sizeof(pid)) ? 1 : 0;
 }
 
-PHANTOM_API int key_inject(unsigned char modifier, const unsigned char* key_codes, unsigned char key_count, unsigned long process_id) {
+AXON_API int key_inject(unsigned char modifier, const unsigned char* key_codes, unsigned char key_count, unsigned long process_id) {
     if (key_count > 6) {
         std::cerr << "Too many key codes. Maximum is 6." << std::endl;
         return 0;
@@ -122,7 +122,7 @@ PHANTOM_API int key_inject(unsigned char modifier, const unsigned char* key_code
     return SendIoctl(ioctl, &request, sizeof(request)) ? 1 : 0;
 }
 
-PHANTOM_API int type_string(const char* text, unsigned long process_id) {
+AXON_API int type_string(const char* text, unsigned long process_id) {
     if (!text) return 0;
 
     std::string str(text);
@@ -141,7 +141,7 @@ PHANTOM_API int type_string(const char* text, unsigned long process_id) {
 }
 
 // Mouse operations
-PHANTOM_API int left_click(int x, int y, unsigned long process_id) {
+AXON_API int left_click(int x, int y, unsigned long process_id) {
     MOUSE_CLICK_REQUEST request = { 0 };
     request.x = x;
     request.y = y;
@@ -151,7 +151,7 @@ PHANTOM_API int left_click(int x, int y, unsigned long process_id) {
     return SendIoctl(MOUSE_CLICK, &request, sizeof(request)) ? 1 : 0;
 }
 
-PHANTOM_API int right_click(int x, int y, unsigned long process_id) {
+AXON_API int right_click(int x, int y, unsigned long process_id) {
     MOUSE_CLICK_REQUEST request = { 0 };
     request.x = x;
     request.y = y;
@@ -161,7 +161,7 @@ PHANTOM_API int right_click(int x, int y, unsigned long process_id) {
     return SendIoctl(MOUSE_RIGHTCLICK, &request, sizeof(request)) ? 1 : 0;
 }
 
-PHANTOM_API int menu_click(int x, int y, unsigned long process_id) {
+AXON_API int menu_click(int x, int y, unsigned long process_id) {
     MOUSE_CLICK_REQUEST request = { 0 };
     request.x = x;
     request.y = y;
@@ -172,7 +172,7 @@ PHANTOM_API int menu_click(int x, int y, unsigned long process_id) {
 }
 
 // Keep your existing conversion functions
-PHANTOM_API unsigned char char_to_hid_code(char c) {
+AXON_API unsigned char char_to_hid_code(char c) {
     // Your existing implementation from PhantomKeyboard.cpp
     if (c >= 'a' && c <= 'z') return 0x04 + (c - 'a');
     if (c >= 'A' && c <= 'Z') return 0x04 + (c - 'A');
@@ -208,7 +208,7 @@ PHANTOM_API unsigned char char_to_hid_code(char c) {
     }
 }
 
-PHANTOM_API unsigned char vk_to_hid_code(unsigned int virtual_key) {
+AXON_API unsigned char vk_to_hid_code(unsigned int virtual_key) {
     // Your existing implementation from PhantomKeyboard.cpp
     switch (virtual_key) {
     case VK_INSERT: return 0x49;
@@ -240,7 +240,7 @@ PHANTOM_API unsigned char vk_to_hid_code(unsigned int virtual_key) {
     }
 }
 
-PHANTOM_API std::string GetCurrentTimestamp() {
+AXON_API std::string GetCurrentTimestamp() {
     auto now = std::chrono::system_clock::now();
     auto in_time_t = std::chrono::system_clock::to_time_t(now);
     std::stringstream ss;
